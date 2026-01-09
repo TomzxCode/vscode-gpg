@@ -5,16 +5,16 @@
   "version": "0.1.0",
   "publisher": "tomzx",
   "bugs": {
-		"url": "https://github.com/tomzxcode/vscode-gpg/issues"
-	},
-	"homepage": "https://github.com/tomzxcode/vscode-gpg/blob/master/README.md",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/tomzxcode/vscode-gpg.git"
-	},
-	"license": "MIT",
+    "url": "https://github.com/tomzxcode/vscode-gpg/issues"
+  },
+  "homepage": "https://github.com/tomzxcode/vscode-gpg/blob/master/README.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tomzxcode/vscode-gpg.git"
+  },
+  "license": "MIT",
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.107.0"
   },
   "categories": [
     "Other"
@@ -92,11 +92,14 @@
     "vscode:prepublish": "bun run compile",
     "compile": "bun run tsc -p ./",
     "watch": "bun run tsc -watch -p ./",
-    "pretest": "bun run compile"
+    "pretest": "bun run compile",
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
     "@types/vscode": "^1.107.0",
+    "@vscode/vsce": "^3.7.1",
     "typescript": "^5.9.3"
   },
   "dependencies": {

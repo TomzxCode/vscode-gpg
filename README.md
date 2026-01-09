@@ -60,7 +60,7 @@ Transparent GPG encryption/decryption for files in VS Code.
 
 ## Requirements
 
-- VS Code 1.80.0 or higher
+- VS Code 1.107.0 or higher
 
 ## License
 

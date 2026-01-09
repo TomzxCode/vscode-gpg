@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(bun install)",
-      "Bash(bun run compile:*)"
+      "Bash(bun run compile:*)",
+      "Bash(bun add:*)"
     ]
   }
 }
