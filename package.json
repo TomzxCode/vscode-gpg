@@ -90,8 +90,8 @@
   },
   "scripts": {
     "vscode:prepublish": "bun run compile",
-    "compile": "bun run tsc -p ./",
-    "watch": "bun run tsc -watch -p ./",
+    "compile": "node build.mjs",
+    "watch": "node build.mjs --watch",
     "pretest": "bun run compile",
     "package": "vsce package",
     "publish": "vsce publish"
@@ -100,6 +100,7 @@
     "@types/node": "^25.0.3",
     "@types/vscode": "^1.107.0",
     "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.27.2",
     "typescript": "^5.9.3"
   },
   "dependencies": {

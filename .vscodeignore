@@ -18,3 +18,4 @@ bun.lock
 *.vsix
 PLAN.md
 .claude/**
+build.mjs
