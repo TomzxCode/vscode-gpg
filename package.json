@@ -1,0 +1,105 @@
+{
+  "name": "vscode-gpg",
+  "displayName": "VS Code GPG",
+  "description": "Transparent GPG encryption/decryption for files in VS Code",
+  "version": "0.1.0",
+  "publisher": "tomzx",
+  "bugs": {
+		"url": "https://github.com/tomzxcode/vscode-gpg/issues"
+	},
+	"homepage": "https://github.com/tomzxcode/vscode-gpg/blob/master/README.md",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/tomzxcode/vscode-gpg.git"
+	},
+	"license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onFileSystem:gpgfs",
+    "onLanguage:plaintext",
+    "onCommand:vscode.openWith"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [{
+      "id": "gpg-encrypted",
+      "aliases": ["GPG Encrypted", "gpg"],
+      "extensions": [".gpg", ".asc"],
+      "configuration": "./language-configuration.json"
+    }],
+    "commands": [
+      {
+        "command": "gpg.openEncrypted",
+        "title": "GPG: Open Encrypted File"
+      },
+      {
+        "command": "gpg.importKey",
+        "title": "GPG: Import Key"
+      },
+      {
+        "command": "gpg.listKeys",
+        "title": "GPG: List Keys"
+      },
+      {
+        "command": "gpg.removeKey",
+        "title": "GPG: Remove Key"
+      },
+      {
+        "command": "gpg.setDefaultRecipient",
+        "title": "GPG: Set Default Recipient"
+      },
+      {
+        "command": "gpg.generateKey",
+        "title": "GPG: Generate New Key Pair"
+      },
+      {
+        "command": "gpg.showLogs",
+        "title": "GPG: Show Logs"
+      }
+    ],
+    "configuration": {
+      "title": "GPG",
+      "properties": {
+        "gpg.defaultRecipient": {
+          "type": "string",
+          "default": "",
+          "description": "Default recipient key ID for encryption"
+        },
+        "gpg.fileExtensions": {
+          "type": "array",
+          "default": [".gpg", ".asc"],
+          "description": "File extensions to treat as encrypted"
+        },
+        "gpg.askForPassphrase": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for passphrase if not stored"
+        },
+        "gpg.autoDecrypt": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically decrypt .gpg/.asc files when opened"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "bun run compile",
+    "compile": "bun run tsc -p ./",
+    "watch": "bun run tsc -watch -p ./",
+    "pretest": "bun run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "@types/vscode": "^1.107.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "openpgp": "^6.3.0"
+  }
+}
