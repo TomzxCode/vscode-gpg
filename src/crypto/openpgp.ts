@@ -131,7 +131,6 @@ export async function decrypt(
       decryptionKeys: decryptedPrivateKey,
     });
 
-    log(`Decryption successful with key: ${primaryKeyId}`);
     return decrypted as string;
   } catch (error) {
     logError('Decryption failed', error);
