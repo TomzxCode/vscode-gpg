@@ -261,7 +261,7 @@ export function registerKeyCommands(context: vscode.ExtensionContext, keyManager
       }
 
       try {
-        await vscode.window.withProgress(
+        const keyPair = await vscode.window.withProgress(
           {
             location: vscode.ProgressLocation.Notification,
             title: 'Generating GPG key pair...',
@@ -289,6 +289,47 @@ export function registerKeyCommands(context: vscode.ExtensionContext, keyManager
         vscode.window.showInformationMessage(
           'Key pair generated successfully! You can now encrypt and decrypt files.'
         );
+
+        // Ask user if they want to save the key pair to disk
+        const saveChoice = await vscode.window.showInformationMessage(
+          'Would you like to save your key pair to disk as a backup?',
+          'Save Key Pair',
+          'Skip'
+        );
+
+        if (saveChoice === 'Save Key Pair') {
+          // Ask for private key location
+          const privateKeyName = `${userId.replace(/[^a-zA-Z0-9]/g, '_')}_private.asc`;
+          const privateKeyUri = await vscode.window.showSaveDialog({
+            title: 'Save Private Key',
+            defaultUri: vscode.Uri.file(privateKeyName),
+            filters: {
+              'GPG Private Key': ['asc'],
+              'All Files': ['*']
+            }
+          });
+
+          if (privateKeyUri) {
+            await fs.writeFile(privateKeyUri.fsPath, keyPair.privateKey, 'utf-8');
+            vscode.window.showInformationMessage(`Private key saved to: ${privateKeyUri.fsPath}`);
+
+            // Ask for public key location
+            const publicKeyName = `${userId.replace(/[^a-zA-Z0-9]/g, '_')}_public.asc`;
+            const publicKeyUri = await vscode.window.showSaveDialog({
+              title: 'Save Public Key',
+              defaultUri: vscode.Uri.file(publicKeyName),
+              filters: {
+                'GPG Public Key': ['asc'],
+                'All Files': ['*']
+              }
+            });
+
+            if (publicKeyUri) {
+              await fs.writeFile(publicKeyUri.fsPath, keyPair.publicKey, 'utf-8');
+              vscode.window.showInformationMessage(`Public key saved to: ${publicKeyUri.fsPath}`);
+            }
+          }
+        }
       } catch (error) {
         logError('Failed to generate key pair', error);
         vscode.window.showErrorMessage(`Failed to generate key pair: ${(error as Error).message}`);

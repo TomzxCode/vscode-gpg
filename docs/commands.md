@@ -84,6 +84,8 @@ The extension will:
 2. Import both the public and private keys
 3. Store the passphrase if provided
 4. Set the new key as the default recipient
+5. Ask if you want to save the key pair to disk as a backup
+6. If you choose to save, prompt for locations to save the private and public keys
 
 **Parameters**: None
 
@@ -93,6 +95,9 @@ The extension will:
 3. Enter your user ID (e.g., "John Doe <john@example.com>")
 4. Enter a passphrase (optional but recommended)
 5. Confirm your passphrase
+6. Choose whether to save the key pair to disk
+7. If saving, select a location for the private key (`.asc`)
+8. Select a location for the public key (`.asc`)
 
 ## Debugging
 

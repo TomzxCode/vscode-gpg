@@ -31,6 +31,20 @@ This specification defines the requirements for key management in VS Code GPG.
 - The extension MAY support key expiration warnings
 - The extension MAY support key revocation
 
+### Key Export
+
+When exporting a newly generated key pair:
+1. After successful key generation, prompt user if they want to save the key pair to disk
+2. If user confirms, show a save dialog for the private key:
+   - Default filename: `{sanitized_userId}_private.asc`
+   - File filter: GPG Private Key (.asc)
+3. Write the armored private key to the selected location
+4. Show a save dialog for the public key:
+   - Default filename: `{sanitized_userId}_public.asc`
+   - File filter: GPG Public Key (.asc)
+5. Write the armored public key to the selected location
+6. Display confirmation messages for each saved file
+
 ## Implementation Details
 
 ### Key Storage
@@ -71,6 +85,8 @@ When generating a new key pair:
 5. Import both public and private keys
 6. Store passphrase if provided
 7. Set as default recipient
+8. Prompt user to save the key pair to disk
+9. If user confirms, save private key and public key to user-selected locations
 
 ### Key Import
 
