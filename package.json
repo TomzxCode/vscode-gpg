@@ -56,6 +56,10 @@
       {
         "command": "gpg.showLogs",
         "title": "GPG: Show Logs"
+      },
+      {
+        "command": "gpg.reloadKeys",
+        "title": "GPG: Reload Keys from Paths"
       }
     ],
     "configuration": {
@@ -80,6 +84,14 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically decrypt .gpg/.asc files when opened"
+        },
+        "gpg.keyPaths": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "List of file or directory paths to load GPG keys from (keys are loaded read-only and not stored in extension storage)"
         }
       }
     }

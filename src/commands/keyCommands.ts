@@ -140,26 +140,67 @@ export function registerKeyCommands(context: vscode.ExtensionContext, keyManager
       quickPick.ignoreFocusOut = true;
 
       const refreshItems = async () => {
-        const keys = await keyManager.listKeys();
+        const storedKeys = await keyManager.listStoredKeys();
+        const externalKeys = await keyManager.listExternalKeys();
 
-        if (keys.length === 0) {
+        if (storedKeys.length === 0 && externalKeys.length === 0) {
           quickPick.items = [];
           quickPick.placeholder = 'No GPG keys found. Import or generate keys first.';
           return;
         }
 
-        quickPick.items = keys.map(k => ({
-          label: k.userId,
-          description: `${k.isPrivate ? '🔒 Private' : '🔓 Public'} | ${k.keyId}`,
-          keyId: k.keyId,
-          isPrivate: k.isPrivate,
-          buttons: [removeButton],
-        }));
-        quickPick.placeholder = `Found ${keys.length} key(s) - Click the trash icon to remove a key`;
+        const items: (vscode.QuickPickItem & { keyId?: string; isPrivate?: boolean; sourcePath?: string })[] = [];
+
+        // Add stored keys section
+        if (storedKeys.length > 0) {
+          items.push({
+            label: 'Stored in VS Code',
+            kind: vscode.QuickPickItemKind.Separator,
+          });
+          for (const k of storedKeys) {
+            items.push({
+              label: k.userId,
+              description: `${k.isPrivate ? '🔒 Private' : '🔓 Public'} | ${k.keyId}`,
+              keyId: k.keyId,
+              isPrivate: k.isPrivate,
+              buttons: [removeButton],
+            });
+          }
+        }
+
+        // Add external keys section
+        if (externalKeys.length > 0) {
+          items.push({
+            label: 'Loaded from File System',
+            kind: vscode.QuickPickItemKind.Separator,
+          });
+          for (const k of externalKeys) {
+            items.push({
+              label: k.userId,
+              description: `${k.isPrivate ? '🔒 Private' : '🔓 Public'} | ${k.keyId}`,
+              detail: k.sourcePath,
+              keyId: k.keyId,
+              isPrivate: k.isPrivate,
+              sourcePath: k.sourcePath,
+            });
+          }
+        }
+
+        quickPick.items = items;
+        quickPick.placeholder = `Found ${storedKeys.length + externalKeys.length} key(s) - Click the trash icon to remove a stored key`;
       };
 
       quickPick.show();
       await refreshItems();
+
+      // Listen for configuration changes to refresh the picker
+      const configChangeListener = vscode.workspace.onDidChangeConfiguration(async (e) => {
+        if (e.affectsConfiguration('gpg.keyPaths') && !quickPick.disposed) {
+          // Wait for keys to finish reloading before refreshing the UI
+          await keyManager.awaitKeysLoaded();
+          await refreshItems();
+        }
+      });
 
       await new Promise<void>((resolve) => {
         quickPick.onDidTriggerItemButton(async (event) => {
@@ -172,13 +213,14 @@ export function registerKeyCommands(context: vscode.ExtensionContext, keyManager
             );
 
             if (confirm === 'Remove') {
-              await keyManager.removeKey(item.keyId, item.isPrivate);
+              await keyManager.removeKey(item.keyId!, item.isPrivate!);
               vscode.window.showInformationMessage('Key removed successfully');
               await refreshItems();
             }
           }
         });
         quickPick.onDidHide(() => {
+          configChangeListener.dispose();
           resolve();
           quickPick.dispose();
         });
@@ -342,6 +384,40 @@ export function registerKeyCommands(context: vscode.ExtensionContext, keyManager
     vscode.commands.registerCommand('gpg.showLogs', () => {
       log('Command: gpg.showLogs');
       showOutputChannel();
+    })
+  );
+
+  // Reload keys from paths command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gpg.reloadKeys', async () => {
+      log('Command: gpg.reloadKeys');
+
+      const config = vscode.workspace.getConfiguration('gpg');
+      const keyPaths = config.get<string[]>('keyPaths', []);
+
+      if (keyPaths.length === 0) {
+        vscode.window.showInformationMessage('No key paths configured. Set gpg.keyPaths in settings to load keys from external paths.');
+        return;
+      }
+
+      try {
+        await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: 'Reloading GPG keys from configured paths...',
+            cancellable: false,
+          },
+          async () => {
+            await keyManager.reloadKeysFromPaths();
+          }
+        );
+
+        const allKeys = await keyManager.listKeys();
+        vscode.window.showInformationMessage(`Keys reloaded. Found ${allKeys.length} total key(s).`);
+      } catch (error) {
+        logError('Failed to reload keys', error);
+        vscode.window.showErrorMessage(`Failed to reload keys: ${(error as Error).message}`);
+      }
     })
   );
 }

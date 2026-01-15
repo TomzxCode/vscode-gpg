@@ -4,6 +4,7 @@ export interface GpgConfig {
   defaultRecipient: string;
   fileExtensions: string[];
   askForPassphrase: boolean;
+  keyPaths: string[];
 }
 
 export function getConfig(): GpgConfig {
@@ -12,6 +13,7 @@ export function getConfig(): GpgConfig {
     defaultRecipient: config.get<string>('defaultRecipient', ''),
     fileExtensions: config.get<string[]>('fileExtensions', ['.gpg', '.asc']),
     askForPassphrase: config.get<boolean>('askForPassphrase', true),
+    keyPaths: config.get<string[]>('keyPaths', []),
   };
 }
 

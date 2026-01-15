@@ -68,6 +68,52 @@ Example:
 }
 ```
 
+### `gpg.keyPaths`
+
+- **Type**: `array`
+- **Default**: `[]`
+- **Description**: List of file or directory paths to load GPG keys from
+
+This setting allows you to load GPG keys from external locations without importing them into the extension's storage. Keys loaded from these paths are:
+
+- **Read-only**: They cannot be removed through the key management UI
+- **Not persisted**: They are not stored in VS Code's global state
+- **Auto-reloaded**: Keys are reloaded when this setting changes
+- **Source tracked**: The source file path is displayed in the key management UI
+
+Supported file extensions: `.asc`, `.gpg`, `.key`, `.pub`, `.sec`, and files starting with `keyring`.
+
+Example:
+```json
+{
+  "gpg.keyPaths": [
+    "/home/user/.gnupg/pubring.kbx",
+    "/home/user/keys/project-keys.asc",
+    "/mnt/shared/keys/"
+  ]
+}
+```
+
+#### Use Cases
+
+1. **Shared Keys**: Load keys from a shared network location or mounted drive
+2. **System GPG**: Use keys from your system's GPG keyring
+3. **Project-Specific Keys**: Define workspace-specific key paths in `.vscode/settings.json`
+4. **Backup Keys**: Keep keys on external storage and load them when needed
+
+#### Workspace Configuration
+
+You can set different key paths for different workspaces:
+
+```json
+{
+  "gpg.keyPaths": [
+    "/home/user/keys/project-a/",
+    "/home/user/keys/project-a-public.asc"
+  ]
+}
+```
+
 ## Example Configuration
 
 Here's a complete example configuration:
@@ -77,7 +123,11 @@ Here's a complete example configuration:
   "gpg.defaultRecipient": "ABC12345DEF67890",
   "gpg.fileExtensions": [".gpg", ".asc"],
   "gpg.askForPassphrase": true,
-  "gpg.autoDecrypt": true
+  "gpg.autoDecrypt": true,
+  "gpg.keyPaths": [
+    "/home/user/.gnupg/pubring.kbx",
+    "/home/user/backup-keys/"
+  ]
 }
 ```
 
@@ -88,7 +138,8 @@ You can configure different settings for different workspaces by creating a `.vs
 ```json
 {
   "gpg.defaultRecipient": "XYZ98765ABC43210",
-  "gpg.fileExtensions": [".secret"]
+  "gpg.fileExtensions": [".secret"],
+  "gpg.keyPaths": ["/home/user/keys/project-a/"]
 }
 ```
 

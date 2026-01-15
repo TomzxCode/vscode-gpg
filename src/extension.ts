@@ -27,6 +27,31 @@ export function activate(context: vscode.ExtensionContext) {
   // Register commands
   registerKeyCommands(context, keyManager);
 
+  // Watch for configuration changes to reload keys when keyPaths changes
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(async (e) => {
+      if (e.affectsConfiguration('gpg.keyPaths')) {
+        log('gpg.keyPaths configuration changed, reloading keys');
+        const config = vscode.workspace.getConfiguration('gpg');
+        const keyPaths = config.get<string[]>('keyPaths', []);
+
+        if (keyPaths.length > 0) {
+          try {
+            await keyManager.reloadKeysFromPaths();
+            const allKeys = await keyManager.listKeys();
+            log(`Reloaded keys from paths. Total keys: ${allKeys.length}`);
+          } catch (error) {
+            logError('Failed to reload keys after configuration change', error);
+          }
+        } else {
+          // If keyPaths is now empty, clear external keys
+          await keyManager.reloadKeysFromPaths();
+          log('keyPaths cleared, external keys removed');
+        }
+      }
+    })
+  );
+
   // Register command to open encrypted file
   context.subscriptions.push(
     vscode.commands.registerCommand('gpg.openEncrypted', async (uri?: vscode.Uri) => {

@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import * as openpgp from 'openpgp';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { KeyInfo, parseKeyInfo, isPassphraseRequired } from './openpgp';
+import { getConfig } from './config';
 import { log, logError } from '../util/logger';
 
 const STORED_KEYS_KEY = 'gpg.storedKeys';
@@ -12,16 +15,24 @@ interface StoredKey {
   userId: string;
   isPrivate: boolean;
   armoredKey: string;
+  isExternal?: boolean; // Marks keys loaded from external paths (not persisted)
+  sourcePath?: string; // Path to the file the key was loaded from
 }
 
 export class KeyManager {
   private context: vscode.ExtensionContext;
   // Use composite key: keyId + type to avoid overwriting public/private with same ID
   private cachedKeys: Map<string, StoredKey> = new Map();
+  // Separate cache for external keys (loaded from paths, not persisted)
+  private externalKeys: Map<string, StoredKey> = new Map();
+  // Track when external keys are being loaded to prevent race conditions
+  private loadKeysPromise: Promise<void> | null = null;
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
     this.loadKeysFromStorage();
+    // Don't await in constructor - store the promise and let it complete asynchronously
+    this.loadKeysPromise = this.loadKeysFromPaths();
   }
 
   /**
@@ -51,6 +62,152 @@ export class KeyManager {
     const keys = Array.from(this.cachedKeys.values());
     await this.context.globalState.update(STORED_KEYS_KEY, keys);
     log(`Saved ${keys.length} keys to storage`);
+  }
+
+  /**
+   * Load keys from configured paths (files or directories)
+   * Keys loaded from paths are NOT persisted to storage
+   */
+  private async loadKeysFromPaths(): Promise<void> {
+    const config = getConfig();
+    const keyPaths = config.keyPaths;
+
+    if (keyPaths.length === 0) {
+      log('No key paths configured');
+      return;
+    }
+
+    log(`Loading keys from ${keyPaths.length} path(s)`);
+    this.externalKeys.clear();
+
+    for (const keyPath of keyPaths) {
+      try {
+        const stat = await fs.stat(keyPath).catch(() => null);
+        if (!stat) {
+          log(`Path does not exist: ${keyPath}`);
+          continue;
+        }
+
+        if (stat.isFile()) {
+          await this.loadKeysFromFile(keyPath);
+        } else if (stat.isDirectory()) {
+          await this.loadKeysFromDirectory(keyPath);
+        }
+      } catch (error) {
+        logError(`Failed to load keys from path: ${keyPath}`, error);
+      }
+    }
+
+    log(`Loaded ${this.externalKeys.size} external key(s) from paths`);
+  }
+
+  /**
+   * Load keys from a single file
+   */
+  private async loadKeysFromFile(filePath: string): Promise<void> {
+    log(`Loading keys from file: ${filePath}`);
+    try {
+      const keyData = await fs.readFile(filePath, 'utf-8');
+      const keyBlocks = this.extractKeyBlocks(keyData);
+
+      for (const block of keyBlocks) {
+        const isPrivate = block.includes('-----BEGIN PGP PRIVATE KEY BLOCK-----');
+        try {
+          const keyInfo = await parseKeyInfo(block.trim(), isPrivate);
+          const compositeKey = this.storageKey(keyInfo.keyId, keyInfo.isPrivate);
+
+          this.externalKeys.set(compositeKey, {
+            keyId: keyInfo.keyId,
+            userId: keyInfo.userId,
+            isPrivate: keyInfo.isPrivate,
+            armoredKey: block.trim(),
+            isExternal: true,
+            sourcePath: filePath,
+          });
+
+          log(`Loaded external key: ${keyInfo.keyId} (${keyInfo.userId}) from ${filePath}`);
+        } catch (blockError) {
+          logError(`Failed to parse key block from ${filePath}`, blockError);
+        }
+      }
+    } catch (error) {
+      logError(`Failed to read key file: ${filePath}`, error);
+    }
+  }
+
+  /**
+   * Load keys from a directory (recursively finds key files)
+   */
+  private async loadKeysFromDirectory(dirPath: string): Promise<void> {
+    log(`Loading keys from directory: ${dirPath}`);
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const fullPath = path.join(dirPath, entry.name);
+
+        if (entry.isDirectory()) {
+          // Recursively load from subdirectories
+          await this.loadKeysFromDirectory(fullPath);
+        } else if (entry.isFile()) {
+          // Check if file has a key-related extension
+          const ext = path.extname(entry.name).toLowerCase();
+          const keyExtensions = ['.asc', '.gpg', '.key', '.pub', '.sec'];
+
+          if (keyExtensions.includes(ext) || entry.name.startsWith('keyring')) {
+            await this.loadKeysFromFile(fullPath);
+          }
+        }
+      }
+    } catch (error) {
+      logError(`Failed to read directory: ${dirPath}`, error);
+    }
+  }
+
+  /**
+   * Extract PGP key blocks from a string
+   */
+  private extractKeyBlocks(keyData: string): string[] {
+    const keyBlocks: string[] = [];
+    const lines = keyData.split('\n');
+    let currentBlock: string[] = [];
+    let inBlock = false;
+
+    for (const line of lines) {
+      if (line.includes('-----BEGIN PGP')) {
+        inBlock = true;
+        currentBlock = [line];
+      } else if (line.includes('-----END PGP')) {
+        currentBlock.push(line);
+        keyBlocks.push(currentBlock.join('\n'));
+        currentBlock = [];
+        inBlock = false;
+      } else if (inBlock) {
+        currentBlock.push(line);
+      }
+    }
+
+    return keyBlocks;
+  }
+
+  /**
+   * Reload keys from configured paths
+   * Returns a promise that resolves when loading is complete
+   */
+  async reloadKeysFromPaths(): Promise<void> {
+    log('Reloading keys from configured paths');
+    // Store the promise so callers can await it
+    this.loadKeysPromise = this.loadKeysFromPaths();
+    await this.loadKeysPromise;
+  }
+
+  /**
+   * Wait for any in-progress key loading to complete
+   */
+  async awaitKeysLoaded(): Promise<void> {
+    if (this.loadKeysPromise) {
+      await this.loadKeysPromise;
+    }
   }
 
   /**
@@ -87,10 +244,11 @@ export class KeyManager {
   }
 
   /**
-   * List all stored keys
+   * List all stored keys (including external keys)
    */
   async listKeys(): Promise<KeyInfo[]> {
-    const keys = Array.from(this.cachedKeys.values()).map(k => ({
+    const allKeys = new Map([...this.cachedKeys, ...this.externalKeys]);
+    const keys = Array.from(allKeys.values()).map(k => ({
       keyId: k.keyId,
       userId: k.userId,
       isPrivate: k.isPrivate,
@@ -100,10 +258,25 @@ export class KeyManager {
   }
 
   /**
+   * List only keys stored in VS Code (not external)
+   */
+  async listStoredKeys(): Promise<StoredKey[]> {
+    return Array.from(this.cachedKeys.values());
+  }
+
+  /**
+   * List only external keys loaded from paths
+   */
+  async listExternalKeys(): Promise<StoredKey[]> {
+    return Array.from(this.externalKeys.values());
+  }
+
+  /**
    * List only public keys (available for encryption)
    */
   async listPublicKeys(): Promise<KeyInfo[]> {
-    const keys = Array.from(this.cachedKeys.values())
+    const allKeys = new Map([...this.cachedKeys, ...this.externalKeys]);
+    const keys = Array.from(allKeys.values())
       .filter(k => !k.isPrivate)
       .map(k => ({
         keyId: k.keyId,
@@ -117,7 +290,8 @@ export class KeyManager {
    * List only private keys (available for decryption)
    */
   async listPrivateKeys(): Promise<KeyInfo[]> {
-    const keys = Array.from(this.cachedKeys.values())
+    const allKeys = new Map([...this.cachedKeys, ...this.externalKeys]);
+    const keys = Array.from(allKeys.values())
       .filter(k => k.isPrivate)
       .map(k => ({
         keyId: k.keyId,
@@ -128,17 +302,19 @@ export class KeyManager {
   }
 
   /**
-   * Get a key by ID and type
+   * Get a key by ID and type (checks both stored and external keys)
    */
   getKey(keyId: string, isPrivate: boolean): StoredKey | undefined {
-    return this.cachedKeys.get(this.storageKey(keyId, isPrivate));
+    const compositeKey = this.storageKey(keyId, isPrivate);
+    return this.cachedKeys.get(compositeKey) || this.externalKeys.get(compositeKey);
   }
 
   /**
-   * Get public key by ID
+   * Get public key by ID (checks both stored and external keys)
    */
   getPublicKey(keyId: string): string | undefined {
-    const stored = this.cachedKeys.get(this.storageKey(keyId, false));
+    const compositeKey = this.storageKey(keyId, false);
+    const stored = this.cachedKeys.get(compositeKey) || this.externalKeys.get(compositeKey);
     if (stored && !stored.isPrivate) {
       return stored.armoredKey;
     }
@@ -146,10 +322,11 @@ export class KeyManager {
   }
 
   /**
-   * Get private key by ID
+   * Get private key by ID (checks both stored and external keys)
    */
   getPrivateKey(keyId: string): string | undefined {
-    const stored = this.cachedKeys.get(this.storageKey(keyId, true));
+    const compositeKey = this.storageKey(keyId, true);
+    const stored = this.cachedKeys.get(compositeKey) || this.externalKeys.get(compositeKey);
     if (stored && stored.isPrivate) {
       return stored.armoredKey;
     }
@@ -157,10 +334,18 @@ export class KeyManager {
   }
 
   /**
-   * Remove a key by ID and type
+   * Remove a key by ID and type (only removes stored keys, not external ones)
    */
   async removeKey(keyId: string, isPrivate: boolean): Promise<boolean> {
     const compositeKey = this.storageKey(keyId, isPrivate);
+
+    // Check if this is an external key
+    const externalKey = this.externalKeys.get(compositeKey);
+    if (externalKey) {
+      log(`Cannot remove external key: ${compositeKey} (loaded from path)`);
+      throw new Error('Cannot remove keys loaded from external paths. Update your gpg.keyPaths configuration instead.');
+    }
+
     log(`Removing key: ${compositeKey}`);
 
     const removed = this.cachedKeys.delete(compositeKey);
