@@ -2,7 +2,7 @@
   "name": "vscode-gpg",
   "displayName": "VS Code GPG",
   "description": "Transparent GPG encryption/decryption for files in VS Code",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "tomzx",
   "bugs": {
     "url": "https://github.com/tomzxcode/vscode-gpg/issues"
