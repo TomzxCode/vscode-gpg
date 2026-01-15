@@ -38,35 +38,25 @@ Imports a GPG key from a file. The extension will:
 2. Type "GPG: Import Key"
 3. Select your key file (`.asc`, `.gpg`, or `.key`)
 
-### `gpg.listKeys`
+### `gpg.manageKeys`
 
-**Title**: GPG: List Keys
+**Title**: GPG: Manage Keys
 
-Displays all stored GPG keys in a quick pick window. Each key shows:
+Displays all stored GPG keys in a quick pick window with the ability to remove keys. Each key shows:
 - User ID
 - Key ID
 - Whether it's public or private
 
+Click the trash icon next to a key to remove it. The menu will stay open and refresh after deletion.
+
 **Parameters**: None
 
 **Usage**:
 1. Open Command Palette
-2. Type "GPG: List Keys"
+2. Type "GPG: Manage Keys"
 3. View your stored keys
-
-### `gpg.removeKey`
-
-**Title**: GPG: Remove Key
-
-Removes a stored GPG key. You'll be prompted to confirm the removal.
-
-**Parameters**: None
-
-**Usage**:
-1. Open Command Palette
-2. Type "GPG: Remove Key"
-3. Select the key to remove
-4. Confirm the removal
+4. Click the trash icon to remove a key
+5. Confirm the removal
 
 ### `gpg.setDefaultRecipient`
 

@@ -100,11 +100,13 @@ The list commands show:
 ### Key Removal
 
 When removing a key:
-1. Show list of keys for selection
-2. Confirm removal
-3. Remove key from storage
-4. Remove associated passphrase (if private key)
-5. Update storage
+1. Show list of keys in a QuickPick with trash icon buttons
+2. User clicks trash icon on the key they want to remove
+3. Confirm removal
+4. Remove key from storage
+5. Remove associated passphrase (if private key)
+6. Update storage
+7. Refresh the key list to show remaining keys
 
 ## Configuration
 
@@ -119,8 +121,7 @@ The default recipient is stored in:
 |---------|-------------|
 | `gpg.generateKey` | Generate a new GPG key pair |
 | `gpg.importKey` | Import a GPG key from a file |
-| `gpg.listKeys` | List all stored GPG keys |
-| `gpg.removeKey` | Remove a stored GPG key |
+| `gpg.manageKeys` | List and manage (remove) stored GPG keys |
 | `gpg.setDefaultRecipient` | Set the default encryption recipient |
 
 ## Testing Scenarios

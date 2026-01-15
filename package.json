@@ -42,12 +42,8 @@
         "title": "GPG: Import Key"
       },
       {
-        "command": "gpg.listKeys",
-        "title": "GPG: List Keys"
-      },
-      {
-        "command": "gpg.removeKey",
-        "title": "GPG: Remove Key"
+        "command": "gpg.manageKeys",
+        "title": "GPG: Manage Keys"
       },
       {
         "command": "gpg.setDefaultRecipient",

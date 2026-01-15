@@ -123,68 +123,66 @@ export function registerKeyCommands(context: vscode.ExtensionContext, keyManager
     })
   );
 
-  // List keys command
+  // Manage keys command
   context.subscriptions.push(
-    vscode.commands.registerCommand('gpg.listKeys', async () => {
-      log('Command: gpg.listKeys');
+    vscode.commands.registerCommand('gpg.manageKeys', async () => {
+      log('Command: gpg.manageKeys');
 
-      const keys = await keyManager.listKeys();
+      const removeButton: vscode.QuickInputButton = {
+        iconPath: new vscode.ThemeIcon('trash'),
+        tooltip: 'Remove key',
+      };
 
-      if (keys.length === 0) {
-        vscode.window.showInformationMessage('No GPG keys found. Import or generate keys first.');
-        return;
-      }
+      const quickPick = vscode.window.createQuickPick();
+      quickPick.title = 'Manage GPG Keys';
+      quickPick.placeholder = 'Loading keys...';
+      quickPick.canSelectMany = false;
+      quickPick.ignoreFocusOut = true;
 
-      const items = keys.map(k => ({
-        label: k.userId,
-        description: `${k.isPrivate ? '🔒 Private' : '🔓 Public'} | ${k.keyId}`,
-      }));
+      const refreshItems = async () => {
+        const keys = await keyManager.listKeys();
 
-      await vscode.window.showQuickPick(items, {
-        placeHolder: `Found ${keys.length} key(s)`,
-        title: 'GPG Keys',
+        if (keys.length === 0) {
+          quickPick.items = [];
+          quickPick.placeholder = 'No GPG keys found. Import or generate keys first.';
+          return;
+        }
+
+        quickPick.items = keys.map(k => ({
+          label: k.userId,
+          description: `${k.isPrivate ? '🔒 Private' : '🔓 Public'} | ${k.keyId}`,
+          keyId: k.keyId,
+          isPrivate: k.isPrivate,
+          buttons: [removeButton],
+        }));
+        quickPick.placeholder = `Found ${keys.length} key(s) - Click the trash icon to remove a key`;
+      };
+
+      quickPick.show();
+      await refreshItems();
+
+      await new Promise<void>((resolve) => {
+        quickPick.onDidTriggerItemButton(async (event) => {
+          if (event.button === removeButton) {
+            const item = event.item as typeof quickPick.items[0];
+            const confirm = await vscode.window.showWarningMessage(
+              `Are you sure you want to remove the key: ${item.label}?`,
+              'Remove',
+              'Cancel'
+            );
+
+            if (confirm === 'Remove') {
+              await keyManager.removeKey(item.keyId, item.isPrivate);
+              vscode.window.showInformationMessage('Key removed successfully');
+              await refreshItems();
+            }
+          }
+        });
+        quickPick.onDidHide(() => {
+          resolve();
+          quickPick.dispose();
+        });
       });
-    })
-  );
-
-  // Remove key command
-  context.subscriptions.push(
-    vscode.commands.registerCommand('gpg.removeKey', async () => {
-      log('Command: gpg.removeKey');
-
-      const keys = await keyManager.listKeys();
-
-      if (keys.length === 0) {
-        vscode.window.showInformationMessage('No GPG keys found.');
-        return;
-      }
-
-      const items = keys.map(k => ({
-        label: k.userId,
-        description: `${k.isPrivate ? 'Private' : 'Public'} | ${k.keyId}`,
-        keyId: k.keyId,
-        isPrivate: k.isPrivate,
-      }));
-
-      const selected = await vscode.window.showQuickPick(items, {
-        placeHolder: 'Select a key to remove',
-        title: 'Remove GPG Key',
-      });
-
-      if (!selected) {
-        return;
-      }
-
-      const confirm = await vscode.window.showWarningMessage(
-        `Are you sure you want to remove the key: ${selected.label}?`,
-        'Remove',
-        'Cancel'
-      );
-
-      if (confirm === 'Remove') {
-        await keyManager.removeKey(selected.keyId, selected.isPrivate);
-        vscode.window.showInformationMessage('Key removed successfully');
-      }
     })
   );
 
