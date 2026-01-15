@@ -1,0 +1,13 @@
+[project]
+name = "vscode-gpg"
+version = "0.1.0"
+description = "Transparent GPG encryption/decryption for files in VS Code"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material[imaging]>=9.4.0",
+]
